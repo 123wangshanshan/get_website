@@ -5,6 +5,7 @@ import argparse
 import re
 import ssl
 import sys
+import time
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
@@ -104,7 +105,16 @@ def write_links(output_path, links):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Download link scraper")
+    parser = argparse.ArgumentParser(
+        description="Download link scraper",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="示例用法：\n  python get_download_links.py --url https://conda.anaconda.org/bioconda/linux-64/ --output download_links.txt",
+    )
+    parser.add_argument(
+        "-u",
+        "--url",
+        help="要提取下载链接的网址。如果未提供，则会交互式提示输入。",
+    )
     parser.add_argument(
         "-o",
         "--output",
@@ -116,11 +126,21 @@ def parse_args():
 
 def main():
     args = parse_args()
-    url = input("请输入要提取下载链接的网址：").strip()
+    url = args.url.strip() if args.url else ""
+    if not url:
+        try:
+            url = input("请输入要提取下载链接的网址：").strip()
+        except EOFError:
+            url = ""
+
     if not url:
         print("未输入网址。", file=sys.stderr)
         sys.exit(1)
 
+    start_time = time.time()
+    print(f"开始时间：{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
+    print(f"正在抓取：{url}")
+    print("正在提取下载链接，请稍候...")
     try:
         links = extract_download_links(url)
     except Exception as exc:
@@ -129,11 +149,18 @@ def main():
         sys.exit(1)
 
     if not links:
+        end_time = time.time()
         print("未找到下载链接。")
+        print(f"结束时间：{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))}")
+        print(f"耗时：{end_time - start_time:.2f} 秒")
         sys.exit(0)
 
+    print(f"已找到 {len(links)} 个下载链接，正在写入 {args.output}...")
     write_links(args.output, links)
-    print(f"已写入 {len(links)} 个下载链接到 {args.output}")
+    end_time = time.time()
+    print(f"完成：已写入 {len(links)} 个下载链接到 {args.output}")
+    print(f"结束时间：{time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))}")
+    print(f"耗时：{end_time - start_time:.2f} 秒")
 
 
 if __name__ == "__main__":
